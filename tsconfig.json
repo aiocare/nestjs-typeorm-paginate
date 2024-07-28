@@ -17,16 +17,14 @@
     "outDir": "./dist",
     "lib": ["es2017"]
   },
-  "include": [
-    "*.ts",
-    "**/*.ts"
-  ],
+  "include": ["*.ts", "**/*.ts"],
   "exclude": [
     "./index.ts",
     "./index.d.ts",
     "node_modules",
     "./**/*.spec.ts",
     "examples",
-    "src/__tests__"
+    "src/__tests__",
+    "dist"
   ]
 }
