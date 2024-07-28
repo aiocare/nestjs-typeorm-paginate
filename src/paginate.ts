@@ -60,15 +60,22 @@ export async function paginateRaw<
       : queryBuilder.take(limit).skip((page - 1) * limit)
     )
       .cache(cacheOption)
-      .getRawMany<T>(),
+      .getRawMany<T>()
+      .catch((error) => {
+        throw new Error(error);
+      }),
     undefined,
   ];
 
   if (countQueries) {
-    promises[1] = countQuery(queryBuilder, cacheOption);
+    promises[1] = countQuery(queryBuilder, cacheOption).catch((error) => {
+      throw new Error(error);
+    });
   }
 
-  const [items, total] = await Promise.all(promises);
+  const [items, total] = await Promise.all(promises).catch((error) => {
+    throw new Error(error);
+  });
 
   return createPaginationObject<T, CustomMetaType>({
     items,
@@ -108,7 +115,9 @@ export async function paginateRawAndEntities<
     promises[1] = countQuery(queryBuilder, cacheOption);
   }
 
-  const [itemObject, total] = await Promise.all(promises);
+  const [itemObject, total] = await Promise.all(promises).catch((error) => {
+    throw new Error(error);
+  });
 
   return [
     createPaginationObject<T, CustomMetaType>({
@@ -177,27 +186,33 @@ async function paginateRepository<T, CustomMetaType = IPaginationMeta>(
   }
 
   const promises: [Promise<T[]>, Promise<number> | undefined] = [
-    repository.find({
-      skip: limit * (page - 1),
-      take: limit,
-      ...searchOptions,
-    }),
+    repository
+      .find({
+        skip: limit * (page - 1),
+        take: limit,
+        ...searchOptions,
+      })
+      .catch((error) => {
+        throw new Error(error);
+      }),
     undefined,
   ];
 
   if (countQueries) {
-    promises[1] = repository.count({
-      ...searchOptions,
-    });
+    promises[1] = repository
+      .count({
+        ...searchOptions,
+      })
+      .catch((error) => {
+        throw new Error(error);
+      });
   }
 
   //const [items, total] = await Promise.all(promises);
-  let items, total;
-  try {
-    [items, total] = await Promise.all(promises);
-  } catch (error) {
+
+  const [items, total] = await Promise.all(promises).catch((error) => {
     throw new Error(error);
-  }
+  });
 
   return createPaginationObject<T, CustomMetaType>({
     items,
@@ -223,21 +238,24 @@ async function paginateQueryBuilder<T, CustomMetaType = IPaginationMeta>(
       : queryBuilder.take(limit).skip((page - 1) * limit)
     )
       .cache(cacheOption)
-      .getMany(),
+      .getMany()
+      .catch((error) => {
+        throw new Error(error);
+      }),
     undefined,
   ];
 
   if (countQueries) {
-    promises[1] = countQuery(queryBuilder, cacheOption);
+    promises[1] = countQuery(queryBuilder, cacheOption).catch((error) => {
+      throw new Error(error);
+    });
   }
 
   //const [items, total] = await Promise.all(promises);
-  let items, total;
-  try {
-    [items, total] = await Promise.all(promises);
-  } catch (error) {
+
+  const [items, total] = await Promise.all(promises).catch((error) => {
     throw new Error(error);
-  }
+  });
 
   return createPaginationObject<T, CustomMetaType>({
     items,
@@ -269,7 +287,10 @@ const countQuery = async <T>(
     .from(`(${totalQueryBuilder.getQuery()})`, 'uniqueTableAlias')
     .cache(cacheOption)
     .setParameters(queryBuilder.getParameters())
-    .getRawOne<{ value: string }>();
+    .getRawOne<{ value: string }>()
+    .catch((error) => {
+      throw new Error(error);
+    });
 
   return Number(value);
 };
