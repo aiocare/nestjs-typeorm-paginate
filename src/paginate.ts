@@ -14,20 +14,47 @@ import {
 } from './interfaces';
 import { createPaginationObject } from './create-pagination';
 
-const DEFAULT_LIMIT = 10;
-const DEFAULT_PAGE = 1;
-
-export async function paginate<T, CustomMetaType = IPaginationMeta>(
+export const PAGINATION_DEFAULT_LIMIT = 10;
+export const PAGINATION_DEFAULT_PAGE = 1;
+/**
+ *
+ * @param repository
+ * @param options
+ * @param searchOptions
+ */
+export async function paginate<
+  T extends ObjectLiteral,
+  CustomMetaType extends ObjectLiteral = IPaginationMeta,
+>(
   repository: Repository<T>,
   options: IPaginationOptions<CustomMetaType>,
   searchOptions?: FindOptionsWhere<T> | FindManyOptions<T>,
 ): Promise<Pagination<T, CustomMetaType>>;
-export async function paginate<T, CustomMetaType = IPaginationMeta>(
+
+/**
+ *
+ * @param queryBuilder
+ * @param options
+ */
+export async function paginate<
+  T extends ObjectLiteral,
+  CustomMetaType extends ObjectLiteral = IPaginationMeta,
+>(
   queryBuilder: SelectQueryBuilder<T>,
   options: IPaginationOptions<CustomMetaType>,
 ): Promise<Pagination<T, CustomMetaType>>;
 
-export async function paginate<T, CustomMetaType = IPaginationMeta>(
+/**
+ *
+ * @param repositoryOrQueryBuilder
+ * @param options
+ * @param searchOptions
+ * @returns paginateRepository | paginateQueryBuilder
+ */
+export async function paginate<
+  T extends ObjectLiteral,
+  CustomMetaType extends ObjectLiteral = IPaginationMeta,
+>(
   repositoryOrQueryBuilder: Repository<T> | SelectQueryBuilder<T>,
   options: IPaginationOptions<CustomMetaType>,
   searchOptions?: FindOptionsWhere<T> | FindManyOptions<T>,
@@ -44,8 +71,14 @@ export async function paginate<T, CustomMetaType = IPaginationMeta>(
       );
 }
 
+/**
+ *
+ * @param queryBuilder
+ * @param options
+ * @returns
+ */
 export async function paginateRaw<
-  T,
+  T extends ObjectLiteral,
   CustomMetaType extends ObjectLiteral = IPaginationMeta,
 >(
   queryBuilder: SelectQueryBuilder<T>,
@@ -54,28 +87,34 @@ export async function paginateRaw<
   const [page, limit, route, paginationType, countQueries, cacheOption] =
     resolveOptions(options);
 
-  const promises: [Promise<T[]>, Promise<number> | undefined] = [
-    (paginationType === PaginationTypeEnum.LIMIT_AND_OFFSET
-      ? queryBuilder.limit(limit).offset((page - 1) * limit)
-      : queryBuilder.take(limit).skip((page - 1) * limit)
-    )
-      .cache(cacheOption)
-      .getRawMany<T>()
-      .catch((error) => {
+  let items: T[];
+  let total;
+
+  try {
+    if (paginationType === PaginationTypeEnum.LIMIT_AND_OFFSET) {
+      items = await queryBuilder
+        .limit(limit)
+        .offset((page - 1) * limit)
+        .cache(cacheOption)
+        .getRawMany<T>();
+    } else {
+      items = await queryBuilder
+        .take(limit)
+        .skip((page - 1) * limit)
+        .cache(cacheOption)
+        .getRawMany<T>();
+    }
+
+    if (countQueries) {
+      try {
+        total = await countQuery(queryBuilder, cacheOption);
+      } catch (error) {
         throw new Error(error);
-      }),
-    undefined,
-  ];
-
-  if (countQueries) {
-    promises[1] = countQuery(queryBuilder, cacheOption).catch((error) => {
-      throw new Error(error);
-    });
-  }
-
-  const [items, total] = await Promise.all(promises).catch((error) => {
+      }
+    }
+  } catch (error) {
     throw new Error(error);
-  });
+  }
 
   return createPaginationObject<T, CustomMetaType>({
     items,
@@ -89,8 +128,8 @@ export async function paginateRaw<
 }
 
 export async function paginateRawAndEntities<
-  T,
-  CustomMetaType = IPaginationMeta,
+  T extends ObjectLiteral,
+  CustomMetaType extends ObjectLiteral = IPaginationMeta,
 >(
   queryBuilder: SelectQueryBuilder<T>,
   options: IPaginationOptions<CustomMetaType>,
@@ -98,26 +137,29 @@ export async function paginateRawAndEntities<
   const [page, limit, route, paginationType, countQueries, cacheOption] =
     resolveOptions(options);
 
-  const promises: [
-    Promise<{ entities: T[]; raw: T[] }>,
-    Promise<number> | undefined,
-  ] = [
-    (paginationType === PaginationTypeEnum.LIMIT_AND_OFFSET
-      ? queryBuilder.limit(limit).offset((page - 1) * limit)
-      : queryBuilder.take(limit).skip((page - 1) * limit)
-    )
-      .cache(cacheOption)
-      .getRawAndEntities<T>(),
-    undefined,
-  ];
+  let itemObject: { entities: T[]; raw: T[] };
+  let total;
+  try {
+    if (paginationType === PaginationTypeEnum.LIMIT_AND_OFFSET) {
+      itemObject = await queryBuilder
+        .limit(limit)
+        .offset((page - 1) * limit)
+        .cache(cacheOption)
+        .getRawAndEntities<T>();
+    } else {
+      itemObject = await queryBuilder
+        .take(limit)
+        .skip((page - 1) * limit)
+        .cache(cacheOption)
+        .getRawAndEntities<T>();
+    }
 
-  if (countQueries) {
-    promises[1] = countQuery(queryBuilder, cacheOption);
-  }
-
-  const [itemObject, total] = await Promise.all(promises).catch((error) => {
+    if (countQueries) {
+      total = await countQuery(queryBuilder, cacheOption);
+    }
+  } catch (error) {
     throw new Error(error);
-  });
+  }
 
   return [
     createPaginationObject<T, CustomMetaType>({
@@ -135,12 +177,23 @@ export async function paginateRawAndEntities<
 
 function resolveOptions(
   options: IPaginationOptions<any>,
-): [number, number, string, PaginationTypeEnum, boolean, TypeORMCacheType] {
-  const page = resolveNumericOption(options, 'page', DEFAULT_PAGE);
-  const limit = resolveNumericOption(options, 'limit', DEFAULT_LIMIT);
+): [
+  number,
+  number,
+  string | undefined,
+  PaginationTypeEnum,
+  boolean,
+  TypeORMCacheType,
+] {
+  const page = resolveNumericOption(options, 'page', PAGINATION_DEFAULT_PAGE);
+  const limit = resolveNumericOption(
+    options,
+    'limit',
+    PAGINATION_DEFAULT_LIMIT,
+  );
   const route = options.route;
   const paginationType =
-    options.paginationType || PaginationTypeEnum.LIMIT_AND_OFFSET;
+    options.paginationType ?? PaginationTypeEnum.LIMIT_AND_OFFSET;
   const countQueries =
     typeof options.countQueries !== 'undefined' ? options.countQueries : true;
   const cacheQueries = options.cacheQueries || false;
@@ -165,12 +218,16 @@ function resolveNumericOption(
   return defaultValue;
 }
 
-async function paginateRepository<T, CustomMetaType = IPaginationMeta>(
+async function paginateRepository<
+  T extends ObjectLiteral,
+  CustomMetaType extends ObjectLiteral = IPaginationMeta,
+>(
   repository: Repository<T>,
   options: IPaginationOptions<CustomMetaType>,
   searchOptions?: FindOptionsWhere<T> | FindManyOptions<T>,
 ): Promise<Pagination<T, CustomMetaType>> {
-  const [page, limit, route, paginationType, countQueries] =
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const [page, limit, route, _paginationType, countQueries] =
     resolveOptions(options);
 
   if (page < 1) {
@@ -185,34 +242,23 @@ async function paginateRepository<T, CustomMetaType = IPaginationMeta>(
     });
   }
 
-  const promises: [Promise<T[]>, Promise<number> | undefined] = [
-    repository
-      .find({
-        skip: limit * (page - 1),
-        take: limit,
-        ...searchOptions,
-      })
-      .catch((error) => {
-        throw new Error(error);
-      }),
-    undefined,
-  ];
+  let items: T[];
+  let total;
+  try {
+    items = await repository.find({
+      skip: limit * (page - 1),
+      take: limit,
+      ...searchOptions,
+    });
 
-  if (countQueries) {
-    promises[1] = repository
-      .count({
+    if (countQueries) {
+      total = await repository.count({
         ...searchOptions,
-      })
-      .catch((error) => {
-        throw new Error(error);
       });
-  }
-
-  //const [items, total] = await Promise.all(promises);
-
-  const [items, total] = await Promise.all(promises).catch((error) => {
+    }
+  } catch (error) {
     throw new Error(error);
-  });
+  }
 
   return createPaginationObject<T, CustomMetaType>({
     items,
@@ -225,37 +271,40 @@ async function paginateRepository<T, CustomMetaType = IPaginationMeta>(
   });
 }
 
-async function paginateQueryBuilder<T, CustomMetaType = IPaginationMeta>(
+async function paginateQueryBuilder<
+  T extends ObjectLiteral,
+  CustomMetaType extends ObjectLiteral = IPaginationMeta,
+>(
   queryBuilder: SelectQueryBuilder<T>,
   options: IPaginationOptions<CustomMetaType>,
 ): Promise<Pagination<T, CustomMetaType>> {
   const [page, limit, route, paginationType, countQueries, cacheOption] =
     resolveOptions(options);
 
-  const promises: [Promise<T[]>, Promise<number> | undefined] = [
-    (PaginationTypeEnum.LIMIT_AND_OFFSET === paginationType
-      ? queryBuilder.limit(limit).offset((page - 1) * limit)
-      : queryBuilder.take(limit).skip((page - 1) * limit)
-    )
-      .cache(cacheOption)
-      .getMany()
-      .catch((error) => {
-        throw new Error(error);
-      }),
-    undefined,
-  ];
+  let items: T[] = [];
+  let total;
 
-  if (countQueries) {
-    promises[1] = countQuery(queryBuilder, cacheOption).catch((error) => {
-      throw new Error(error);
-    });
-  }
+  try {
+    if (paginationType === PaginationTypeEnum.LIMIT_AND_OFFSET) {
+      items = await queryBuilder
+        .limit(limit)
+        .offset((page - 1) * limit)
+        .cache(cacheOption)
+        .getMany();
+    } else {
+      items = await queryBuilder
+        .take(limit)
+        .skip((page - 1) * limit)
+        .cache(cacheOption)
+        .getMany();
+    }
 
-  //const [items, total] = await Promise.all(promises);
-
-  const [items, total] = await Promise.all(promises).catch((error) => {
+    if (countQueries) {
+      total = await countQuery(queryBuilder, cacheOption);
+    }
+  } catch (error) {
     throw new Error(error);
-  });
+  }
 
   return createPaginationObject<T, CustomMetaType>({
     items,
@@ -268,29 +317,27 @@ async function paginateQueryBuilder<T, CustomMetaType = IPaginationMeta>(
   });
 }
 
-const countQuery = async <T>(
+const countQuery = async <T extends ObjectLiteral>(
   queryBuilder: SelectQueryBuilder<T>,
   cacheOption: TypeORMCacheType,
 ): Promise<number> => {
   const totalQueryBuilder = queryBuilder.clone();
-
   totalQueryBuilder
     .skip(undefined)
     .limit(undefined)
     .offset(undefined)
-    .take(undefined)
-    .orderBy(undefined);
-
-  const { value } = await queryBuilder.connection
-    .createQueryBuilder()
-    .select('COUNT(*)', 'value')
-    .from(`(${totalQueryBuilder.getQuery()})`, 'uniqueTableAlias')
-    .cache(cacheOption)
-    .setParameters(queryBuilder.getParameters())
-    .getRawOne<{ value: string }>()
-    .catch((error) => {
-      throw new Error(error);
-    });
-
-  return Number(value);
+    .take(undefined);
+  let result;
+  try {
+    result = await queryBuilder.connection
+      .createQueryBuilder()
+      .select('COUNT(*)', 'value')
+      .from(`(${totalQueryBuilder.getQuery()})`, 'uniqueTableAlias')
+      .cache(cacheOption)
+      .setParameters(queryBuilder.getParameters())
+      .getRawOne<{ value: string }>();
+  } catch (error) {
+    throw new Error(error);
+  }
+  return Number(result.value);
 };

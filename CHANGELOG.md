@@ -1,3 +1,8 @@
+## 5.0.0 (2024-07-28)
+#### Refactor
+- refactor to use async/await
+- fixed tests
+- upgraded deps 
 ## 4.0.0 (2022-04-26)
 #### Refactor
  - updated types to work with typeorm [^3.6.0](https://github.com/typeorm/typeorm)

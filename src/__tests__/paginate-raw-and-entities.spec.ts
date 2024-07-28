@@ -3,8 +3,9 @@ import { getConnectionToken, TypeOrmModule } from '@nestjs/typeorm';
 import { Connection, QueryRunner, SelectQueryBuilder } from 'typeorm';
 import { paginateRawAndEntities } from '../paginate';
 import { Pagination } from '../pagination';
-import { baseOrmConfigs } from './base-orm-config';
+import { baseOrmConfig } from './base-orm-config';
 import { TestEntity } from './test.entity';
+import { TestRelatedEntity } from './test-related.entity';
 
 describe('Test paginateRawAndEntities function', () => {
   const TEST_ROUTE = 'https://testing.this/api/v1';
@@ -25,10 +26,9 @@ describe('Test paginateRawAndEntities function', () => {
     app = await Test.createTestingModule({
       imports: [
         TypeOrmModule.forRoot({
-          ...baseOrmConfigs,
-          dropSchema: true,
-          synchronize: true,
+          ...baseOrmConfig,
         }),
+        TypeOrmModule.forFeature([TestEntity, TestRelatedEntity]), // Add entities here if needed
       ],
     }).compile();
     connection = app.get(getConnectionToken());
@@ -49,7 +49,6 @@ describe('Test paginateRawAndEntities function', () => {
   });
 
   afterAll(async () => {
-    await queryBuilder.delete();
     await app.close();
   });
 

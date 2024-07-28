@@ -32,8 +32,9 @@ export function createPaginationObject<
   const hasFirstPage = route;
   const hasPreviousPage = route && currentPage > 1;
   const hasNextPage =
-    route && totalItems !== undefined && currentPage < totalPages;
-  const hasLastPage = route && totalItems !== undefined && totalPages > 0;
+    route && totalItems && totalPages !== undefined && currentPage < totalPages;
+  const hasLastPage =
+    route && totalItems && totalPages !== undefined && totalPages > 0;
 
   const symbol = route && new RegExp(/\?/).test(route) ? '&' : '?';
 
@@ -45,19 +46,15 @@ export function createPaginationObject<
   const pageLabel =
     routingLabels && routingLabels.pageLabel ? routingLabels.pageLabel : 'page';
 
-  const routes: IPaginationLinks =
+  const routes: IPaginationLinks | undefined =
     totalItems !== undefined
       ? {
           first: hasFirstPage ? `${route}${symbol}${limitLabel}=${limit}` : '',
           previous: hasPreviousPage
-            ? `${route}${symbol}${pageLabel}=${
-                currentPage - 1
-              }&${limitLabel}=${limit}`
+            ? `${route}${symbol}${pageLabel}=${currentPage - 1}&${limitLabel}=${limit}`
             : '',
           next: hasNextPage
-            ? `${route}${symbol}${pageLabel}=${
-                currentPage + 1
-              }&${limitLabel}=${limit}`
+            ? `${route}${symbol}${pageLabel}=${currentPage + 1}&${limitLabel}=${limit}`
             : '',
           last: hasLastPage
             ? `${route}${symbol}${pageLabel}=${totalPages}&${limitLabel}=${limit}`
@@ -82,6 +79,9 @@ export function createPaginationObject<
       links,
     );
 
-  // @ts-ignore
-  return new Pagination<T, CustomMetaType>(items, meta, links);
+  return new Pagination<T, CustomMetaType>(
+    items,
+    meta as unknown as CustomMetaType,
+    links,
+  );
 }
