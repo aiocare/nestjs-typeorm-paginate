@@ -1,3 +1,8 @@
+**DISCLAIMER**
+This version (v5.0.0) was reworked to use async/await instead promises.
+
+**ORGINAL README**
+
 <p align="center"><img src="https://avatars1.githubusercontent.com/u/43827489?s=400&u=45ac0ac47d40b6d8f277c96bdf00244c10508aef&v=4"/></p>
 <p align="center">
   <img src="https://github.com/nestjsx/nestjs-typeorm-paginate/workflows/Tests/badge.svg"/>
